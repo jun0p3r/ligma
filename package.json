@@ -1,0 +1,93 @@
+{
+  "name": "ligma",
+  "productName": "Ligma",
+  "version": "0.1.0",
+  "description": "Unofficial Figma client for Linux: figma.com in its own window with tabs, WebGPU and local fonts",
+  "main": "src/main.js",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "gpu-debug": "electron . --gpu-debug",
+    "font-agent": "node src/fontAgent.js",
+    "dist": "electron-builder --linux"
+  },
+  "dependencies": {
+    "fontkit": "^2.0.4"
+  },
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "io.github.jun0p3r.Ligma",
+    "productName": "Ligma",
+    "files": [
+      "src/**/*",
+      "build/icon.png"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm",
+        "flatpak"
+      ],
+      "category": "Graphics",
+      "icon": "build/icons",
+      "executableName": "ligma",
+      "synopsis": "Unofficial Figma client for Linux",
+      "desktop": {
+        "entry": {
+          "Name": "Ligma",
+          "Comment": "Unofficial Figma client with WebGPU and local fonts",
+          "Keywords": "figma;design;ui;prototype;"
+        }
+      },
+      "syncDesktopName": true,
+      "maintainer": "jun0p3r <figma_linux@icloud.com>"
+    },
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "toolsets": {
+      "appimage": "1.0.3"
+    },
+    "deb": {
+      "packageCategory": "graphics",
+      "priority": "optional"
+    },
+    "rpm": {
+      "packageCategory": "Graphics"
+    },
+    "flatpak": {
+      "runtime": "org.freedesktop.Platform",
+      "runtimeVersion": "25.08",
+      "sdk": "org.freedesktop.Sdk",
+      "base": "org.electronjs.Electron2.BaseApp",
+      "baseVersion": "25.08",
+      "finishArgs": [
+        "--socket=wayland",
+        "--socket=fallback-x11",
+        "--share=ipc",
+        "--share=network",
+        "--socket=pulseaudio",
+        "--device=all",
+        "--talk-name=org.freedesktop.Notifications",
+        "--filesystem=xdg-download"
+      ]
+    }
+  },
+  "author": {
+    "name": "jun0p3r",
+    "email": "figma_linux@icloud.com",
+    "url": "https://github.com/jun0p3r"
+  },
+  "desktopName": "ligma.desktop",
+  "homepage": "https://github.com/jun0p3r/ligma",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jun0p3r/ligma.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jun0p3r/ligma/issues"
+  }
+}

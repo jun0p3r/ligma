@@ -1,0 +1,196 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'">
+<title>Ligma</title>
+<style>
+  :root {
+    --bg: #2c2c2c;
+    --fg: #e6e6e6;
+    --muted: #9a9a9a;
+    --hover: rgba(255, 255, 255, 0.08);
+    --tab-active: #383838;
+    --close: #e5484d;
+    --accent: #0d99ff;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    font: 12px/1 "Inter", "Cantarell", "Noto Sans", system-ui, sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+  .bar {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding-left: 6px;
+    -webkit-app-region: drag; /* click and drag any empty space to move the window */
+    border-bottom: 1px solid #1e1e1e;
+  }
+  .group { display: flex; align-items: center; gap: 2px; -webkit-app-region: no-drag; }
+  .nav { margin-right: 6px; }
+  button {
+    -webkit-app-region: no-drag;
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--fg);
+    cursor: default;
+  }
+  button:hover { background: var(--hover); }
+  button:disabled { color: #555; background: transparent; }
+  button svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+
+  /* Tab strip: tabs are no-drag; the empty space after them stays draggable. */
+  .tabs {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab {
+    -webkit-app-region: no-drag;
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 1 200px;
+    min-width: 72px;
+    height: 30px;
+    padding: 0 4px 0 10px;
+    border-radius: 6px 6px 0 0;
+    color: var(--muted);
+  }
+  .tab:hover { background: var(--hover); color: var(--fg); }
+  .tab.active { background: var(--tab-active); color: var(--fg); }
+  .tab.active::after {
+    content: "";
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: 0;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--accent);
+  }
+  .tab.home { flex: 0 0 auto; min-width: 0; padding: 0 10px; }
+  .tab .label { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tab .icon { width: 14px; height: 14px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.5; }
+  .tab .x { width: 20px; height: 20px; border-radius: 4px; flex: none; visibility: hidden; }
+  .tab:hover .x, .tab.active .x { visibility: visible; }
+  .tab .x svg { width: 10px; height: 10px; }
+  .tab.loading .icon { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: 0.3; } }
+  .add { flex: none; margin: 0 4px 3px; align-self: flex-end; }
+  .spacer { flex: 1 0 24px; height: 100%; } /* guaranteed drag area */
+
+  .win button { width: 46px; height: 36px; border-radius: 0; }
+  .win button.close:hover { background: var(--close); color: #fff; }
+</style>
+</head>
+<body>
+<div class="bar" id="bar">
+  <div class="group nav">
+    <button id="back" title="Back" disabled><svg viewBox="0 0 14 14"><path d="M9 2 4 7l5 5"/></svg></button>
+    <button id="forward" title="Forward" disabled><svg viewBox="0 0 14 14"><path d="m5 2 5 5-5 5"/></svg></button>
+    <button id="reload" title="Reload (Ctrl+R)"><svg viewBox="0 0 14 14"><path d="M11.5 7a4.5 4.5 0 1 1-1.3-3.2M11.5 1.5v3h-3"/></svg></button>
+  </div>
+  <div class="tabs" id="tabs"></div>
+  <div class="spacer"></div>
+  <div class="group win">
+    <button id="minimize" title="Minimize"><svg viewBox="0 0 14 14"><path d="M3 7h8"/></svg></button>
+    <button id="maximize" title="Maximize"><svg viewBox="0 0 14 14"><rect x="3" y="3" width="8" height="8"/></svg></button>
+    <button id="close" class="close" title="Close"><svg viewBox="0 0 14 14"><path d="m3 3 8 8M11 3l-8 8"/></svg></button>
+  </div>
+</div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const svg = (inner) => `<svg viewBox="0 0 14 14" class="icon">${inner}</svg>`;
+  const HOME_ICON = svg('<path d="M2 6.5 7 2l5 4.5V12H2z"/>');
+  const FILE_ICON = svg('<rect x="2.5" y="1.5" width="9" height="11" rx="1.5"/><path d="M5 5h4M5 7.5h4"/>');
+  const CLOSE_ICON = '<svg viewBox="0 0 14 14"><path d="m3 3 8 8M11 3l-8 8"/></svg>';
+  const ADD_ICON = '<svg viewBox="0 0 14 14"><path d="M7 2v10M2 7h10"/></svg>';
+  const MAXIMIZE = '<svg viewBox="0 0 14 14"><rect x="3" y="3" width="8" height="8"/></svg>';
+  const RESTORE = '<svg viewBox="0 0 14 14"><rect x="3" y="5" width="6" height="6"/><path d="M5 5V3h6v6H9"/></svg>';
+
+  for (const id of ['back', 'forward', 'reload', 'minimize', 'maximize', 'close']) {
+    $(id).addEventListener('click', () => window.ligma.command(id));
+  }
+  $('bar').addEventListener('dblclick', (e) => {
+    if (!e.target.closest('button, .tab')) window.ligma.command('maximize');
+  });
+
+  const tabsEl = $('tabs');
+  tabsEl.addEventListener('mousedown', (e) => {
+    const tab = e.target.closest('.tab');
+    if (!tab || e.button !== 0 || e.target.closest('.x')) return;
+    window.ligma.command('activate-tab', tab.dataset.id);
+  });
+  tabsEl.addEventListener('click', (e) => {
+    const x = e.target.closest('.x');
+    if (x) window.ligma.command('close-tab', x.closest('.tab').dataset.id);
+    else if (e.target.closest('.add')) window.ligma.command('new-tab');
+  });
+  tabsEl.addEventListener('auxclick', (e) => {
+    const tab = e.target.closest('.tab');
+    if (tab && e.button === 1) window.ligma.command('close-tab', tab.dataset.id);
+  });
+  // Vertical wheel scrolls the strip sideways when there are many tabs.
+  tabsEl.addEventListener('wheel', (e) => {
+    if (e.deltaY) tabsEl.scrollLeft += e.deltaY;
+  }, { passive: true });
+
+  function renderTabs(state) {
+    tabsEl.replaceChildren();
+    for (const t of state.tabs) {
+      const el = document.createElement('div');
+      el.className = 'tab' + (t.home ? ' home' : '') + (t.id === state.activeId ? ' active' : '') + (t.loading ? ' loading' : '');
+      el.dataset.id = t.id;
+      el.title = t.title;
+      el.innerHTML = t.home ? HOME_ICON : FILE_ICON;
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = t.title; // file names are untrusted text
+      el.append(label);
+      if (!t.home) {
+        const x = document.createElement('button');
+        x.className = 'x';
+        x.title = 'Close tab (Ctrl+W)';
+        x.innerHTML = CLOSE_ICON;
+        el.append(x);
+      }
+      tabsEl.append(el);
+    }
+    const add = document.createElement('button');
+    add.className = 'add';
+    add.title = 'New tab (Ctrl+T)';
+    add.innerHTML = ADD_ICON;
+    tabsEl.append(add);
+    tabsEl.querySelector('.tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
+  window.ligma.onState((state) => {
+    renderTabs(state);
+    $('back').disabled = !state.canGoBack;
+    $('forward').disabled = !state.canGoForward;
+    $('maximize').innerHTML = state.maximized ? RESTORE : MAXIMIZE;
+    $('maximize').title = state.maximized ? 'Restore' : 'Maximize';
+  });
+</script>
+</body>
+</html>
